@@ -64,20 +64,29 @@ The frontend talks to the backend through a single seam ([src/lib/api.ts](src/li
 - **Backend (Teammate 2):** FastAPI, **Qdrant** (vector search), sentence-transformers / **Amazon Bedrock** (embeddings + step generation), scikit-learn.
 - **Hosting:** static frontend on **AWS S3 + CloudFront**; backend on AWS (container).
 
-## Run it locally
+## Run it locally (the demo setup)
+
+Two processes on one machine — plug and play:
 
 ```bash
+# 1. Backend (Teammate 2's repo): serves the Qdrant interview on :8000
+python3 -m uvicorn agent_system:app --port 8000
+
+# 2. Frontend
 npm install
 npm run dev          # http://localhost:5173
 ```
 
-It works immediately on mock data. To connect the real backend, copy `.env.example` to `.env.local` and set:
+In dev the frontend **auto-targets `http://localhost:8000`**, so no env var is needed — it just works once the backend is up. If the backend isn't running, it **falls back to the built-in mock** so the app still works.
+
+Optional config — copy `.env.example` to `.env` and set:
 
 ```bash
-VITE_API_BASE_URL=https://your-backend-host      # Teammate 2's API
-# optional — spoken interview:
+# spoken interview (ElevenLabs):
 VITE_ELEVENLABS_API_KEY=...
 VITE_ELEVENLABS_VOICE_ID=...
+# override the backend URL (e.g. a cloudflared tunnel or a deployed API):
+VITE_API_BASE_URL=https://your-backend-host
 ```
 
 Build for production:

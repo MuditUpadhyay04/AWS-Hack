@@ -65,7 +65,7 @@ export class PlatformerScene extends Phaser.Scene {
       levelData = await generateLevelWithBedrock(
         this.stepData?.difficulty || "easy",
         this.stepData?.is_risk || false,
-        this.stepData?.domain || "general"
+        this.roadmap?.domain || this.stepData?.domain || "general"
       );
 
       loadingText.destroy();

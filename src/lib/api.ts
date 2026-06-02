@@ -42,25 +42,28 @@ export interface InterviewInput {
   answers: InterviewAnswer[];
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// In dev we default to a local backend (Teammate 2 runs it on :8000), so the app
+// is plug-and-play on the demo machine. A production build stays unset unless
+// VITE_API_BASE_URL is provided. Either way, if the backend can't be reached we
+// fall back to the mock so the demo never dead-ends.
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://localhost:8000" : undefined);
 
 export async function advanceInterview(input: InterviewInput): Promise<InterviewResponse> {
-  // No backend configured yet — run the local mock interview.
-  if (!API_BASE_URL) {
+  if (!API_BASE_URL) return mockAdvance(input);
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/roadmap/next`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    return (await res.json()) as InterviewResponse;
+  } catch (err) {
+    console.warn("Backend unreachable — falling back to the mock roadmap:", err);
     return mockAdvance(input);
   }
-
-  const res = await fetch(`${API_BASE_URL}/roadmap/next`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Roadmap request failed (${res.status})`);
-  }
-
-  return (await res.json()) as InterviewResponse;
 }
 
 // --- Mock interview (used until the backend is wired) ---

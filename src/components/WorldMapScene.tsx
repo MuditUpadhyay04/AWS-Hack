@@ -16,83 +16,144 @@ export class WorldMapScene extends Phaser.Scene {
 
   create() {
     const steps = this.roadmap.steps;
+    // Cream "paper" background + warm ink palette, so the world reads as the
+    // hand-drawn roadmap come to life (same colors as the sketch on screen 2).
+    this.cameras.main.setBackgroundColor("#f3ead2");
+
+    // Header: what this world is actually about.
+    this.add
+      .text(400, 36, this.roadmap.goal, {
+        fontSize: "30px",
+        color: "#2a2a2a",
+        fontFamily: "Caveat, cursive",
+        fontStyle: "bold",
+        align: "center",
+        wordWrap: { width: 720 },
+      })
+      .setOrigin(0.5);
+    this.add
+      .text(400, 70, `your ${this.roadmap.domain} path · tap a step to play it · reach the flag to advance`, {
+        fontSize: "16px",
+        color: "#6b5d4a",
+        fontFamily: "Caveat, cursive",
+      })
+      .setOrigin(0.5);
+
     const padding = 100;
-    const spacing = (800 - padding * 2) / (steps.length - 1);
+    const spacing = steps.length > 1 ? (800 - padding * 2) / (steps.length - 1) : 0;
+    const xFor = (i: number) => (steps.length > 1 ? padding + i * spacing : 400);
+    const yFor = (i: number) => 320 + (i % 2 === 0 ? 30 : -30);
 
+    // Connecting trail (warm ink, like the roadmap path).
     const graphics = this.add.graphics();
-    graphics.lineStyle(4, 0xffffff, 1);
-
-    // Draw the connecting path first
+    graphics.lineStyle(4, 0x6b5d4a, 0.7);
     graphics.beginPath();
-    steps.forEach((step, index) => {
-      const x = padding + (index * spacing);
-      const y = 300 + (index % 2 === 0 ? 30 : -30); // Slight zig-zag
-      
+    steps.forEach((_step, index) => {
+      const x = xFor(index);
+      const y = yFor(index);
       if (index === 0) graphics.moveTo(x, y);
       else graphics.lineTo(x, y);
     });
     graphics.strokePath();
 
-    // Render nodes based on the 6 rules
     steps.forEach((step, index) => {
-      const x = padding + (index * spacing);
-      const y = 300 + (index % 2 === 0 ? 30 : -30);
+      const x = xFor(index);
+      const y = yFor(index);
 
-      // Rule 5: Difficulty controls size
-      let radius = 15;
-      if (step.difficulty === "medium") radius = 20;
-      if (step.difficulty === "hard") radius = 25;
+      // Difficulty controls size.
+      let radius = step.difficulty === "hard" ? 25 : step.difficulty === "medium" ? 20 : 15;
 
-      let color = 0x888888; // Default: Rule 3 (not_started / gray)
-      
-      // Rule 1: Done -> Green
-      if (step.status === "done") color = 0x4ade80; 
-      
-      // Rule 2: In Progress -> Highlighted (Yellow)
-      if (step.status === "in_progress") color = 0xfde047;
-
-      // Rule 4: Risk -> Red/Orange (Bowser level substitute)
+      // Status/risk controls color — matched to the hand-drawn roadmap legend.
+      let color = 0xe8e2d0; // not_started
+      if (step.status === "done") color = 0xa7d8a3;
+      if (step.status === "in_progress") color = 0xfde68a;
       if (step.is_risk) {
-        color = 0xef4444; 
-        radius += 5; // Risks look bigger/spikier
+        color = 0xf4a261;
+        radius += 5;
       }
 
-      // Draw the level node
-      const node = this.add.circle(x, y, radius, color).setStrokeStyle(3, 0x000000);
-      node.setInteractive({ useHandCursor: true });
+      const node = this.add.circle(x, y, radius, color).setStrokeStyle(3, 0x3a2e1f);
+      const locked = step.status === "not_started";
+      if (locked) node.setAlpha(0.55);
+      else node.setInteractive({ useHandCursor: true });
 
-      // Label
-      this.add.text(x, y - radius - 20, step.title, {
-        fontSize: '12px',
-        color: '#000000',
-        fontFamily: 'monospace'
-      }).setOrigin(0.5);
+      // Marker inside the node: check / star / number (or "!" for a risk).
+      const marker = step.is_risk
+        ? "!"
+        : step.status === "done"
+        ? "✓"
+        : step.status === "in_progress"
+        ? "★"
+        : String(index + 1);
+      this.add
+        .text(x, y, marker, {
+          fontSize: "16px",
+          color: "#3a2e1f",
+          fontFamily: "Caveat, cursive",
+          fontStyle: "bold",
+        })
+        .setOrigin(0.5);
 
-      // Place Mario (Player) on the in_progress step
+      // Title under the node.
+      this.add
+        .text(x, y + radius + 16, step.title, {
+          fontSize: "14px",
+          color: "#2a2a2a",
+          fontFamily: "Caveat, cursive",
+          align: "center",
+          wordWrap: { width: 130 },
+        })
+        .setOrigin(0.5);
+
+      // Flag a risk node as the "boss".
+      if (step.is_risk) {
+        this.add
+          .text(x, y - radius - 14, "⚠ boss", {
+            fontSize: "13px",
+            color: "#7a1f00",
+            fontFamily: "Caveat, cursive",
+          })
+          .setOrigin(0.5);
+      }
+
+      // "You are here" marker on the in-progress step.
       if (step.status === "in_progress") {
-        this.player = this.add.circle(x, y - 10, 10, 0x3b82f6); // Blue dot for Mario
-        this.add.tween({
+        this.player = this.add.circle(x, y - radius - 28, 9, 0x3b82f6).setStrokeStyle(2, 0x1e3a8a);
+        this.add
+          .text(x, y - radius - 46, "you", {
+            fontSize: "12px",
+            color: "#1e3a8a",
+            fontFamily: "Caveat, cursive",
+          })
+          .setOrigin(0.5);
+        this.tweens.add({
           targets: this.player,
-          y: y - 20,
+          y: y - radius - 38,
           duration: 500,
           yoyo: true,
           repeat: -1,
-          ease: 'Sine.easeInOut'
+          ease: "Sine.easeInOut",
         });
       }
 
-      // Interaction: Click a node to load the Bedrock-generated platformer level
-      node.on('pointerdown', () => {
-         if (step.status !== "not_started") {
-             console.log(`Entering level ${step.id}. Calling Bedrock...`);
-             
-             // Update this line to pass the roadmap too
-             this.scene.start('PlatformerScene', { 
-               step: step,
-               roadmap: this.roadmap 
-             });
-         }
-      });
+      // Click an unlocked step to play its Bedrock-generated level.
+      if (!locked) {
+        node.on("pointerdown", () => {
+          this.scene.start("PlatformerScene", { step, roadmap: this.roadmap });
+        });
+      }
     });
+
+    // Celebrate when the whole roadmap is complete.
+    if (steps.every((s) => s.status === "done")) {
+      this.add
+        .text(400, 560, `you reached: ${this.roadmap.goal} 🎉`, {
+          fontSize: "22px",
+          color: "#2f6b34",
+          fontFamily: "Caveat, cursive",
+          fontStyle: "bold",
+        })
+        .setOrigin(0.5);
+    }
   }
 }
