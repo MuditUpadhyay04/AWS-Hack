@@ -207,9 +207,8 @@ class CircularInterviewEngine:
         # Search for the best question
         results = client.search(
             collection_name="questions",
-            query_vector=context_embedding,
-            limit=1,
-            score_threshold=0.0
+            query_vector=vector.tolist(),
+            limit=1
         )
         
         if results:
@@ -310,8 +309,7 @@ class CircularInterviewEngine:
             results = client.search(
                 collection_name="user_paths",
                 query_vector=full_vector.tolist(),
-                limit=15,  # Get more for better statistics
-                score_threshold=0.0
+                limit=15  # Get more for better statistics
             )
             
             # Filter to this path only
