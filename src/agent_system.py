@@ -192,6 +192,7 @@ class CircularInterviewEngine:
         """
         SEARCH #1: Find most relevant question for the next unanswered domain.
         Uses intent + partial feature vector as context.
+        Version-agnostic: handles both search() and search_points() APIs.
         """
         
         # Build context
@@ -201,18 +202,34 @@ class CircularInterviewEngine:
         
         context_embedding = embedding_model.encode(context)
         
-        # Search for the best question
-        results = client.search_points(
-            collection_name="questions",
-            query_vector=context_embedding.tolist(),
-            limit=1
-        )
-        
-        if results.points:
-            question_id = results.points[0].payload["question_id"]
-            question_text = results.points[0].payload["question_text"]
-            domain = results.points[0].payload["domain"]
-            return question_id, question_text, domain
+        # Try newer API first (search_points)
+        try:
+            results = client.search_points(
+                collection_name="questions",
+                query_vector=context_embedding.tolist(),
+                limit=1
+            )
+            if results.points:
+                question_id = results.points[0].payload["question_id"]
+                question_text = results.points[0].payload["question_text"]
+                domain = results.points[0].payload["domain"]
+                return question_id, question_text, domain
+        except AttributeError:
+            # Fallback to older API (search)
+            try:
+                results = client.search(
+                    collection_name="questions",
+                    query_vector=context_embedding.tolist(),
+                    limit=1
+                )
+                if results:
+                    question_id = results[0].payload["question_id"]
+                    question_text = results[0].payload["question_text"]
+                    domain = results[0].payload["domain"]
+                    return question_id, question_text, domain
+            except Exception as e:
+                print(f"Error searching questions: {e}")
+                return None, None, None
         
         return None, None, None
     
@@ -292,6 +309,7 @@ class CircularInterviewEngine:
         """
         SEARCH #2: For each candidate path, find similar users and score.
         Returns dict of path -> (score, similar_users_count, outcomes).
+        Version-agnostic: handles both search() and search_points() APIs.
         """
         candidate_paths, _ = self.predict_paths()
         
@@ -302,15 +320,28 @@ class CircularInterviewEngine:
         path_scores = {}
         
         for path in candidate_paths:
-            # Search for similar users on this path
-            results = client.search_points(
-                collection_name="user_paths",
-                query_vector=full_vector.tolist(),
-                limit=15  # Get more for better statistics
-            )
+            matching_users = []
             
-            # Filter to this path only
-            matching_users = [r for r in results.points if r.payload["path_taken"] == path]
+            # Try newer API first (search_points)
+            try:
+                results = client.search_points(
+                    collection_name="user_paths",
+                    query_vector=full_vector.tolist(),
+                    limit=15
+                )
+                matching_users = [r for r in results.points if r.payload["path_taken"] == path]
+            except AttributeError:
+                # Fallback to older API (search)
+                try:
+                    results = client.search(
+                        collection_name="user_paths",
+                        query_vector=full_vector.tolist(),
+                        limit=15
+                    )
+                    matching_users = [r for r in results if r.payload["path_taken"] == path]
+                except Exception as e:
+                    print(f"Error searching user_paths: {e}")
+                    matching_users = []
             
             if matching_users:
                 outcomes = [r.payload["outcome_success"] for r in matching_users]
