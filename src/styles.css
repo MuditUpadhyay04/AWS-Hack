@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+/* Design tokens. @theme inline exposes the CSS variables below as Tailwind
+   utilities (e.g. --color-ink -> text-ink, --font-hand -> font-hand). */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-paper: var(--paper);
+  --color-paper-warm: var(--paper-warm);
+  --color-ink: var(--ink);
+  --color-pencil: var(--pencil);
+  --color-margin: var(--margin);
+  --color-highlight: var(--highlight);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "Caveat", "Comic Sans MS", cursive;
+  --font-hand: "Caveat", "Comic Sans MS", cursive;
+  --font-script: "Kalam", "Caveat", cursive;
+}
+
+:root {
+  --radius: 1rem;
+
+  /* warm paper world */
+  --paper: oklch(0.96 0.025 85);          /* cream */
+  --paper-warm: oklch(0.93 0.035 80);     /* tea-stained */
+  --ink: oklch(0.28 0.04 50);             /* warm dark brown */
+  --pencil: oklch(0.50 0.03 60);          /* graphite warm */
+  --margin: oklch(0.65 0.18 25);          /* red margin line */
+  --highlight: oklch(0.88 0.13 95);       /* yellow highlighter */
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: oklch(0.97 0.022 85);
+  --card-foreground: var(--ink);
+  --popover: var(--paper);
+  --popover-foreground: var(--ink);
+  --primary: oklch(0.48 0.14 35);         /* warm rust */
+  --primary-foreground: var(--paper);
+  --secondary: oklch(0.92 0.03 80);
+  --secondary-foreground: var(--ink);
+  --muted: oklch(0.92 0.025 80);
+  --muted-foreground: oklch(0.52 0.03 60);
+  --accent: oklch(0.85 0.10 85);
+  --accent-foreground: var(--ink);
+  --destructive: oklch(0.58 0.20 28);
+  --destructive-foreground: var(--paper);
+  --border: oklch(0.82 0.03 70);
+  --input: oklch(0.88 0.025 75);
+  --ring: oklch(0.65 0.12 50);
+
+  --success: oklch(0.62 0.14 145);
+  --warning: oklch(0.72 0.17 60);
+  --danger: oklch(0.60 0.21 30);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  /* Subtle dotted "paper grain" backgrounds. */
+  .bg-paper {
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(oklch(0.82 0.05 70 / 0.18) 1px, transparent 1.2px),
+      radial-gradient(oklch(0.78 0.04 60 / 0.10) 1px, transparent 1.2px);
+    background-size: 26px 26px, 19px 19px;
+    background-position: 0 0, 9px 11px;
+  }
+  .bg-paper-warm {
+    background-color: var(--paper-warm);
+    background-image:
+      radial-gradient(oklch(0.78 0.06 65 / 0.22) 1px, transparent 1.2px),
+      radial-gradient(oklch(0.72 0.05 55 / 0.14) 1px, transparent 1.2px);
+    background-size: 24px 24px, 17px 17px;
+    background-position: 0 0, 8px 8px;
+  }
+  /* Blue notebook rule lines + the red left margin line. */
+  .bg-ruled {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 31px,
+      oklch(0.65 0.12 230 / 0.18) 31px,
+      oklch(0.65 0.12 230 / 0.18) 32px
+    );
+  }
+  .margin-line {
+    background-image: linear-gradient(
+      to right,
+      transparent 0,
+      transparent 48px,
+      oklch(0.65 0.18 25 / 0.45) 48px,
+      oklch(0.65 0.18 25 / 0.45) 49px,
+      transparent 49px
+    );
+  }
+
+  .font-hand { font-family: var(--font-hand); }
+  .font-script { font-family: var(--font-script); }
+
+  /* Slightly raised "card on paper" look used by every panel. */
+  .paper-card {
+    background: var(--card);
+    border: 1px solid oklch(0.78 0.04 70 / 0.5);
+    box-shadow:
+      0 1px 0 oklch(0.78 0.04 70 / 0.4),
+      0 2px 6px oklch(0.30 0.05 50 / 0.06),
+      0 12px 24px oklch(0.30 0.05 50 / 0.08);
+  }
+
+  /* Bit of washi tape pinning a card to the page. */
+  .tape {
+    position: absolute;
+    width: 88px;
+    height: 22px;
+    background: oklch(0.88 0.08 90 / 0.7);
+    border: 1px solid oklch(0.78 0.07 85 / 0.5);
+    box-shadow: 0 2px 4px oklch(0.30 0.05 50 / 0.12);
+  }
+
+  /* Pulsing "AI is reading" dot in the cortex panel. */
+  .pulse-dot {
+    box-shadow: 0 0 0 0 oklch(0.48 0.14 35 / 0.5);
+    animation: pulse-ring 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 oklch(0.48 0.14 35 / 0.45); }
+    70% { box-shadow: 0 0 0 14px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  /* Insight/constraint chips fade in with a tiny tilt (--tilt set inline). */
+  .fade-up { animation: fadeUp 0.5s ease both; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px) rotate(var(--tilt, 0deg)); }
+    to { opacity: 1; transform: translateY(0) rotate(var(--tilt, 0deg)); }
+  }
+
+  /* Blinking text caret for the "reading along" state. */
+  .blink-caret::after {
+    content: "▍";
+    margin-left: 2px;
+    color: var(--primary);
+    animation: blink 1s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .highlight-yellow {
+    background: linear-gradient(
+      transparent 55%,
+      oklch(0.88 0.16 95 / 0.55) 55%,
+      oklch(0.88 0.16 95 / 0.55) 92%,
+      transparent 92%
+    );
+    padding: 0 2px;
+  }
+
+  /* Hand-drawn squiggle underline (inline SVG) for headings. */
+  .scribble-underline {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 8'><path d='M2 5 Q 20 1 40 5 T 80 5 T 118 5' stroke='%23a8541a' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 100% 6px;
+    padding-bottom: 4px;
+  }
+}
