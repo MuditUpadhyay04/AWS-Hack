@@ -216,7 +216,7 @@ class CircularInterviewEngine:
 
         if results:
             p = results[0].payload
-            return p["question_id"], p["question_text"], p["domain"]
+            return p["id"], p["text"], p["domain"]
         return None, None, None
 
     def normalize_answer(self, answer_text, domain):
