@@ -192,33 +192,32 @@ class CircularInterviewEngine:
         self.confidence_threshold = 0.75
     
     def select_next_question(self, user_intent):
-        """
-        SEARCH #1: Find most relevant question for the next unanswered domain.
-        Uses intent + partial feature vector as context.
-        """
-        
-        # Build context
-        context = user_intent
-        for domain, scalar in self.feature_vector_partial.items():
-            context += f" {domain}: {scalar:.2f}"
-        
-        context_embedding = embedding_model.encode(context)
-        
-        # Search for the best question
-        results = client.search(
-            collection_name="questions",
-            query_vector=vector.tolist(),
-            limit=1
-        )
-        
-        if results:
-            question_id = results[0].payload["question_id"]
-            question_text = results[0].payload["question_text"]
-            domain = results[0].payload["domain"]
-            return question_id, question_text, domain
-        
-        return None, None, None
+    """
+    SEARCH #1: Find most relevant question for the next unanswered domain.
+    Uses intent + partial feature vector as context.
+    """
     
+    # Build context
+    context = user_intent
+    for domain, scalar in self.feature_vector_partial.items():
+        context += f" {domain}: {scalar:.2f}"
+    
+    context_embedding = embedding_model.encode(context)
+    
+    # Search for the best question
+    results = client.search(
+        collection_name="questions",
+        query_vector=context_embedding.tolist(),
+        limit=1
+    )
+    
+    if results:
+        question_id = results[0].payload["question_id"]
+        question_text = results[0].payload["question_text"]
+        domain = results[0].payload["domain"]
+        return question_id, question_text, domain
+    
+    return None, None, None    
     def normalize_answer(self, answer_text, domain):
         """Convert answer text to 0-1 scalar."""
         answer_lower = answer_text.lower()
