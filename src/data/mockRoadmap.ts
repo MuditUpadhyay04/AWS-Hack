@@ -16,6 +16,8 @@ export interface RoadmapStep {
   status: StepStatus;
   /** Hazard step — the one that becomes a "Bowser" level in the game. */
   is_risk: boolean;
+  /** Transient: set briefly when a live sync deficit makes this risk "flare". */
+  is_active_risk?: boolean;
 }
 
 export interface Roadmap {

@@ -205,6 +205,13 @@
     to { opacity: 1; transform: translateX(0); }
   }
 
+  /* Quick fade for the roadmap node tooltips. */
+  .tooltip-in { animation: tooltipFade 150ms ease both; }
+  @keyframes tooltipFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
   /* Whole-screen fade used on the notes <-> roadmap hand-off. */
   .screen-enter { animation: screenEnter 0.5s ease both; }
   @keyframes screenEnter {

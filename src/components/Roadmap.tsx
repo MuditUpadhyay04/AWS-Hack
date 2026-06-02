@@ -58,7 +58,18 @@ function buildPath(points: Point[]): string {
   return d;
 }
 
+// A couple of concrete next-actions per step, shown in the hover tooltip.
+// Keyed by step id (covers the demo's 5 steps); unknown ids just show no bullets.
+const ACTIONS: Record<number, string[]> = {
+  0: ["open a high-yield savings account", "aim for 1 month of expenses first", "automate a small weekly transfer"],
+  1: ["list your top 3 recurring costs", "check if your campus has an RA program", "cancel subscriptions you forgot about"],
+  2: ["look into income-driven repayment options", "make one extra payment this month", "set a monthly loan payment reminder"],
+  3: ["this is a known risk — plan for it now", "keep a separate buffer for next semester", "talk to your financial aid office early"],
+  4: ["start with an index fund, not individual stocks", "invest only money you won't need for 2+ years", "look into your employer's 401k match first"],
+};
+
 function colorFor(step: RoadmapStep) {
+  if (step.is_active_risk) return { fill: "#ff7a2f", stroke: "#7a1500" }; // flaring on a sync deficit
   if (step.is_risk) return { fill: "#f4a261", stroke: "#c1440e" };
   if (step.status === "done") return { fill: "#a7d8a3", stroke: "#2f6b34" };
   if (step.status === "in_progress") return { fill: "#fde68a", stroke: "#a16207" };
@@ -77,6 +88,8 @@ export function Roadmap({
   const svgRef = useRef<SVGSVGElement>(null);
   // How many nodes have "appeared" so far, for the staggered reveal.
   const [drawn, setDrawn] = useState(0);
+  // Which node's tooltip is open (hover on desktop, tap on touch).
+  const [hoveredNode, setHoveredNode] = useState<number | null>(null);
 
   const steps = roadmap.steps;
 
@@ -200,11 +213,25 @@ export function Roadmap({
               {steps.map((step, i) => (
                 <g
                   key={step.id}
+                  onMouseEnter={() => setHoveredNode(step.id)}
+                  onMouseLeave={() => setHoveredNode((h) => (h === step.id ? null : h))}
+                  onClick={() => setHoveredNode((h) => (h === step.id ? null : step.id))}
                   style={{
                     opacity: drawn > i ? 1 : 0,
                     transition: "opacity 0.5s ease",
+                    // only interactive once revealed
+                    pointerEvents: drawn > i ? "auto" : "none",
+                    cursor: "pointer",
                   }}
                 >
+                  {/* invisible hit area so the whole node is hoverable/tappable */}
+                  <circle
+                    cx={positions[i].x}
+                    cy={positions[i].y}
+                    r={step.is_risk ? 58 : 50}
+                    fill="transparent"
+                  />
+
                   {/* status icon */}
                   <text
                     x={positions[i].x}
@@ -256,6 +283,53 @@ export function Roadmap({
                       </div>
                     </div>
                   </foreignObject>
+
+                  {/* hover/tap tooltip with concrete next-actions */}
+                  {hoveredNode === step.id && (
+                    <foreignObject
+                      x={positions[i].x - 115}
+                      y={positions[i].y > H / 2 ? positions[i].y - 64 - 140 : positions[i].y + 60}
+                      width="230"
+                      height="150"
+                      style={{ overflow: "visible", pointerEvents: "none" }}
+                    >
+                      <div
+                        className="tooltip-in"
+                        style={{
+                          fontFamily: "Caveat, cursive",
+                          background: "#f6eed6",
+                          border: "1.5px dashed rgba(40,30,20,0.4)",
+                          borderRadius: 12,
+                          padding: "8px 11px",
+                          boxShadow: "0 6px 16px rgba(40,30,20,0.18)",
+                          transform: `rotate(${step.id % 2 ? 0.8 : -0.8}deg)`,
+                        }}
+                      >
+                        <div style={{ fontSize: 20, fontWeight: 600, color: "#2a2a2a", lineHeight: 1.05 }}>
+                          {step.title}
+                        </div>
+                        <ul style={{ margin: "4px 0 6px", paddingLeft: 16, listStyleType: "disc" }}>
+                          {(ACTIONS[step.id] ?? []).map((a, k) => (
+                            <li key={k} style={{ fontSize: 15, lineHeight: 1.2, color: "#6b5d4a" }}>
+                              {a}
+                            </li>
+                          ))}
+                        </ul>
+                        <div
+                          style={{
+                            fontFamily: "JetBrains Mono, monospace",
+                            fontSize: 9,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.14em",
+                            color: step.is_risk ? "#7a1f00" : "#2a2a2a",
+                            opacity: 0.7,
+                          }}
+                        >
+                          {step.is_risk ? "risk · bowser" : step.status.replace("_", " ")} · {step.difficulty}
+                        </div>
+                      </div>
+                    </foreignObject>
+                  )}
                 </g>
               ))}
 

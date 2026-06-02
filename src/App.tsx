@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CortexPanel } from "@/components/CortexPanel";
 import { Notepad } from "@/components/Notepad";
 import { IntegrationsPanel } from "@/components/IntegrationsPanel";
@@ -9,12 +9,15 @@ import { UnderstandingPreview } from "@/components/UnderstandingPreview";
 import { fetchRoadmap } from "@/lib/api";
 import { deriveDomain, detectInsights } from "@/lib/insights";
 import { parseNotes } from "@/lib/notes";
+import { getDemoSyncPulse } from "@/lib/sheetsSync";
 import type { Roadmap as RoadmapData } from "@/data/mockRoadmap";
 
 // Minimum time to keep the "sketching..." beat on screen so the hand-off feels
 // deliberate even when the data returns instantly (as the mock does).
 const MIN_SKETCH_MS = 1400;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// How often the connected "Sheets sync" nudges the roadmap (demo cadence).
+const SYNC_INTERVAL_MS = 15000;
 
 // Top-level container. Holds the two pieces of shared state — the notes text
 // and which screen we're on — and toggles between screen 1 (notes) and screen 2
@@ -30,6 +33,17 @@ export default function App() {
   // The plug-ins panel starts hidden; the user opens it, and a pin keeps it open.
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const [integrationsPinned, setIntegrationsPinned] = useState(false);
+  // Google Sheets "live sync": once connected, App pulses periodically and nudges
+  // the roadmap (advance on surplus, flare a risk on deficit).
+  const [sheetsConnected, setSheetsConnected] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  // Latest roadmap, so the interval callback can read it without re-subscribing.
+  const roadmapRef = useRef(roadmap);
+  useEffect(() => {
+    roadmapRef.current = roadmap;
+  }, [roadmap]);
 
   // The page reveals itself as the "AI" notices things: cortex once you start
   // writing, the "things I know" strip once it actually picks something up.
@@ -66,6 +80,59 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [handleBuild]);
+
+  // One sync "tick": read the latest numbers and nudge the roadmap for ~4s.
+  const pulse = useCallback(() => {
+    const rm = roadmapRef.current;
+    if (!rm) return;
+    const { surplus } = getDemoSyncPulse();
+    setLastSyncAt(Date.now());
+    setSyncing(true);
+    window.setTimeout(() => setSyncing(false), 800);
+
+    if (surplus > 0) {
+      // surplus -> the next not-started step starts moving
+      const target = rm.steps.find((s) => s.status === "not_started");
+      if (!target) return;
+      console.log("Sheets sync: surplus detected, advancing roadmap.");
+      setRoadmap((cur) =>
+        cur
+          ? { ...cur, steps: cur.steps.map((s) => (s.id === target.id ? { ...s, status: "in_progress" as const } : s)) }
+          : cur,
+      );
+      window.setTimeout(() => {
+        setRoadmap((cur) =>
+          cur
+            ? { ...cur, steps: cur.steps.map((s) => (s.id === target.id ? { ...s, status: "not_started" as const } : s)) }
+            : cur,
+        );
+      }, 4000);
+    } else {
+      // deficit -> the risk node flares (a "Bowser" moment)
+      const target = rm.steps.find((s) => s.is_risk);
+      if (!target) return;
+      console.log("Sheets sync: deficit — risk node flaring.");
+      setRoadmap((cur) =>
+        cur ? { ...cur, steps: cur.steps.map((s) => (s.id === target.id ? { ...s, is_active_risk: true } : s)) } : cur,
+      );
+      window.setTimeout(() => {
+        setRoadmap((cur) =>
+          cur ? { ...cur, steps: cur.steps.map((s) => (s.id === target.id ? { ...s, is_active_risk: false } : s)) } : cur,
+        );
+      }, 4000);
+    }
+  }, []);
+
+  // Run the sync loop once Sheets is connected (persists across screens).
+  useEffect(() => {
+    if (!sheetsConnected) return;
+    const first = window.setTimeout(pulse, 4000); // quick first reaction
+    const id = window.setInterval(pulse, SYNC_INTERVAL_MS);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
+  }, [sheetsConnected, pulse]);
 
   if (screen === "game" && roadmap)
     return <GameScreen roadmap={roadmap} onBack={() => setScreen("roadmap")} />;
@@ -137,6 +204,9 @@ export default function App() {
                     setIntegrationsOpen(false);
                     setIntegrationsPinned(false);
                   }}
+                  onSheetsConnected={() => setSheetsConnected(true)}
+                  sheetsSyncing={syncing}
+                  sheetsLastSyncAt={lastSyncAt}
                 />
               </div>
             ) : (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // The right panel of screen 1: optional integrations the user could connect.
 // These are visual-only for now — "connect" just simulates a short linking
@@ -11,11 +11,15 @@ function IntegrationCard({
   desc,
   icon,
   tilt,
+  onConnected,
+  footer,
 }: {
   name: string;
   desc: string;
   icon: React.ReactNode;
   tilt: string;
+  onConnected?: () => void;
+  footer?: React.ReactNode;
 }) {
   // Persist "connected" across refreshes so a mid-demo reload doesn't look broken.
   const storageKey = `integration_status_${name.toLowerCase().replace(/\s+/g, "_")}`;
@@ -26,6 +30,13 @@ function IntegrationCard({
       return "idle";
     }
   });
+
+  // Notify the parent whenever connected (fresh connect or restored from storage).
+  useEffect(() => {
+    if (status === "connected") onConnected?.();
+    // intentionally only depends on status — fire once per connect, not per render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   const handle = () => {
     if (status !== "idle") return;
@@ -73,6 +84,7 @@ function IntegrationCard({
           ? "linking…"
           : "connect"}
       </button>
+      {footer}
     </div>
   );
 }
@@ -81,13 +93,33 @@ export function IntegrationsPanel({
   pinned,
   onTogglePin,
   onClose,
+  onSheetsConnected,
+  sheetsSyncing,
+  sheetsLastSyncAt,
 }: {
   pinned?: boolean;
   onTogglePin?: () => void;
   onClose?: () => void;
+  onSheetsConnected?: () => void;
+  sheetsSyncing?: boolean;
+  sheetsLastSyncAt?: number | null;
 } = {}) {
   // Show the pin/close controls only when App is managing this panel's visibility.
   const showControls = Boolean(onTogglePin || onClose);
+
+  // Tick once a second so the "last synced Xs ago" label counts up.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!sheetsLastSyncAt) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [sheetsLastSyncAt]);
+
+  const syncLabel = sheetsSyncing
+    ? "syncing…"
+    : sheetsLastSyncAt
+    ? `last synced ${Math.max(0, Math.round((now - sheetsLastSyncAt) / 1000))}s ago`
+    : null;
 
   return (
     <aside className="paper-card relative flex flex-col gap-4 rounded-2xl p-5">
@@ -139,6 +171,14 @@ export function IntegrationsPanel({
           desc="your expense tracker, budget, anything tabular"
           icon={<span>📊</span>}
           tilt="-0.6deg"
+          onConnected={onSheetsConnected}
+          footer={
+            syncLabel ? (
+              <p className="mt-2 font-hand text-sm text-pencil">
+                <span aria-hidden className="text-primary">●</span> {syncLabel}
+              </p>
+            ) : null
+          }
         />
         <IntegrationCard
           name="Google Docs"
