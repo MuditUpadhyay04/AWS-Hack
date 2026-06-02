@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import rough from "roughjs";
 import { mockRoadmap, type Roadmap as RoadmapData, type RoadmapStep } from "@/data/mockRoadmap";
+import type { Rationale } from "@/lib/api";
 
 // Screen 2: the hand-drawn roadmap. A winding rough.js path with one node per
 // step, styled by status / risk. Everything here is driven by the `roadmap`
@@ -78,10 +79,12 @@ function colorFor(step: RoadmapStep) {
 
 export function Roadmap({
   roadmap = mockRoadmap,
+  rationale,
   onBack,
   onPlay,
 }: {
   roadmap?: RoadmapData;
+  rationale?: Rationale | null;
   onBack?: () => void;
   onPlay?: () => void;
 }) {
@@ -188,6 +191,13 @@ export function Roadmap({
               notes and shaped this around what you told me. Watch out for the orange one — that's
               a risk that could push you back.
             </p>
+            {rationale && (
+              <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-success/50 bg-success/15 px-3 py-1 font-hand text-base text-ink">
+                <span aria-hidden>📊</span>
+                {Math.round(rationale.successRate * 100)}% of {rationale.similarUsers} similar
+                people succeeded on this path
+              </p>
+            )}
           </div>
           <button
             type="button"

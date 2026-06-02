@@ -6,7 +6,13 @@ import { ConstraintsBar } from "@/components/ConstraintsBar";
 import { Roadmap } from "@/components/Roadmap";
 import { GameScreen } from "@/components/GameScreen";
 import { UnderstandingPreview } from "@/components/UnderstandingPreview";
-import { fetchRoadmap } from "@/lib/api";
+import {
+  advanceInterview,
+  type Constraint,
+  type InterviewAnswer,
+  type InterviewQuestion,
+  type Rationale,
+} from "@/lib/api";
 import { deriveDomain, detectInsights } from "@/lib/insights";
 import { parseNotes } from "@/lib/notes";
 import { getDemoSyncPulse } from "@/lib/sheetsSync";
@@ -30,6 +36,14 @@ export default function App() {
   const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
   // Whether we're mid-"sketching..." (fetching + the deliberate beat).
   const [building, setBuilding] = useState(false);
+  // Multi-turn interview: the current clarifying question, the answers gathered
+  // so far, the in-progress answer text, and the constraints/rationale the
+  // backend has surfaced.
+  const [currentQuestion, setCurrentQuestion] = useState<InterviewQuestion | null>(null);
+  const [answers, setAnswers] = useState<InterviewAnswer[]>([]);
+  const [answerText, setAnswerText] = useState("");
+  const [interviewConstraints, setInterviewConstraints] = useState<Constraint[]>([]);
+  const [rationale, setRationale] = useState<Rationale | null>(null);
   // The plug-ins panel starts hidden; the user opens it, and a pin keeps it open.
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const [integrationsPinned, setIntegrationsPinned] = useState(false);
@@ -55,31 +69,66 @@ export default function App() {
   const notesDoc = useMemo(() => parseNotes(text), [text]);
   const integrationsVisible = integrationsOpen || integrationsPinned;
 
-  const handleBuild = useCallback(async () => {
-    if (building) return;
-    setBuilding(true);
-    try {
-      // Wait on whichever takes longer: the fetch or the minimum beat. Instant
-      // for the mock today; honours real latency once the backend is wired.
-      const [data] = await Promise.all([fetchRoadmap(notesDoc), wait(MIN_SKETCH_MS)]);
-      setRoadmap(data);
-      setScreen("roadmap");
-    } catch (err) {
-      // Don't dead-end the demo — log it and let the user try again.
-      console.error("Couldn't build the roadmap:", err);
-    } finally {
-      setBuilding(false);
-    }
-  }, [notesDoc, building]);
+  // One step of the interview: send the notes + answers so far, then either show
+  // the next question or (when done) sketch the finished roadmap.
+  const runAdvance = useCallback(
+    async (nextAnswers: InterviewAnswer[]) => {
+      if (building) return;
+      setBuilding(true);
+      try {
+        const res = await advanceInterview({
+          notes: notesDoc.raw,
+          structured: notesDoc.sections,
+          answers: nextAnswers,
+        });
+        setAnswers(nextAnswers);
+        setInterviewConstraints(res.constraints ?? []);
+        if (res.status === "question") {
+          setCurrentQuestion(res.question);
+          setAnswerText("");
+        } else {
+          // finished — keep the deliberate "sketching" beat, then reveal the roadmap
+          await wait(MIN_SKETCH_MS);
+          setRoadmap(res.roadmap);
+          setRationale(res.rationale ?? null);
+          setCurrentQuestion(null);
+          setScreen("roadmap");
+        }
+      } catch (err) {
+        // Don't dead-end the demo — log it and let the user try again.
+        console.error("Couldn't advance the interview:", err);
+      } finally {
+        setBuilding(false);
+      }
+    },
+    [building, notesDoc],
+  );
 
-  // Cmd/Ctrl + Enter mirrors the "build my roadmap" button.
+  // "build my roadmap" starts the interview from scratch.
+  const startBuild = useCallback(() => {
+    setAnswers([]);
+    runAdvance([]);
+  }, [runAdvance]);
+
+  // Submit the current answer and advance.
+  const submitAnswer = useCallback(() => {
+    if (!currentQuestion || !answerText.trim()) return;
+    const answer: InterviewAnswer = {
+      domain: currentQuestion.domain,
+      questionId: currentQuestion.id,
+      value: answerText.trim(),
+    };
+    runAdvance([...answers, answer]);
+  }, [currentQuestion, answerText, answers, runAdvance]);
+
+  // Cmd/Ctrl + Enter starts the build (only when we're not mid-interview).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleBuild();
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !currentQuestion) startBuild();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleBuild]);
+  }, [startBuild, currentQuestion]);
 
   // One sync "tick": read the latest numbers and nudge the roadmap for ~4s.
   const pulse = useCallback(() => {
@@ -142,6 +191,7 @@ export default function App() {
       <div className="screen-enter">
         <Roadmap
           roadmap={roadmap}
+          rationale={rationale}
           onBack={() => setScreen("notes")}
           onPlay={() => setScreen("game")}
         />
@@ -239,40 +289,88 @@ export default function App() {
           </div>
         )}
 
-        <div
-          className="paper-card relative mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl p-5 md:flex-row"
-          style={{ background: "linear-gradient(180deg, var(--paper-warm), var(--paper))" }}
-        >
-          <div>
-            <p className="font-hand text-2xl text-ink">
-              {text.trim().length > 20
-                ? "okay — i think i've got enough to sketch something."
-                : "keep writing a bit. i'll let you know when we've got something."}
-            </p>
-            <p className="font-hand text-base text-pencil">
-              i'll turn this into a hand-drawn path you can actually follow.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleBuild}
-            disabled={building}
-            className="group relative inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink px-7 py-3 font-hand text-xl text-paper transition hover:scale-[1.02] hover:bg-primary hover:border-primary disabled:opacity-80"
-            style={{ boxShadow: "3px 3px 0 oklch(0.30 0.05 50 / 0.25)" }}
-          >
-            {building ? (
-              <>
-                <span aria-hidden className="h-2 w-2 animate-ping rounded-full bg-paper" />
-                sketching your path…
-              </>
-            ) : (
-              <>
-                build my roadmap
-                <span aria-hidden className="transition group-hover:translate-x-1">→</span>
-              </>
+        {currentQuestion ? (
+          // mid-interview: ask one clarifying question at a time, notes still visible above
+          <div className="paper-card relative mt-8 rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <span className="font-hand text-sm text-pencil">a couple of quick questions —</span>
+              <span className="font-hand text-sm text-pencil">question {answers.length + 1}</span>
+            </div>
+            <p className="mt-2 font-hand text-2xl text-ink">{currentQuestion.text}</p>
+            <div className="mt-3 flex gap-2">
+              <input
+                value={answerText}
+                onChange={(e) => setAnswerText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    submitAnswer();
+                  }
+                }}
+                autoFocus
+                placeholder="type your answer…"
+                aria-label={currentQuestion.text}
+                className="flex-1 rounded-lg border-2 border-ink/40 bg-paper px-3 py-2 font-hand text-lg text-ink outline-none focus:border-ink"
+              />
+              <button
+                type="button"
+                onClick={submitAnswer}
+                disabled={building || !answerText.trim()}
+                className="rounded-full border-2 border-ink bg-ink px-5 py-2 font-hand text-lg text-paper transition hover:bg-primary hover:border-primary disabled:opacity-60"
+              >
+                {building ? "…" : "answer →"}
+              </button>
+            </div>
+            {interviewConstraints.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {interviewConstraints.map((c, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-ink/30 bg-paper-warm px-3 py-1 font-hand text-base text-ink"
+                  >
+                    <span aria-hidden>{c.icon}</span>
+                    {c.label}
+                  </span>
+                ))}
+              </div>
             )}
-          </button>
-        </div>
+          </div>
+        ) : (
+          <div
+            className="paper-card relative mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl p-5 md:flex-row"
+            style={{ background: "linear-gradient(180deg, var(--paper-warm), var(--paper))" }}
+          >
+            <div>
+              <p className="font-hand text-2xl text-ink">
+                {text.trim().length > 20
+                  ? "okay — i think i've got enough to ask you a couple things."
+                  : "keep writing a bit. i'll let you know when we've got something."}
+              </p>
+              <p className="font-hand text-base text-pencil">
+                i'll ask a question or two, then turn this into a hand-drawn path.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={startBuild}
+              disabled={building}
+              className="group relative inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink px-7 py-3 font-hand text-xl text-paper transition hover:scale-[1.02] hover:bg-primary hover:border-primary disabled:opacity-80"
+              style={{ boxShadow: "3px 3px 0 oklch(0.30 0.05 50 / 0.25)" }}
+            >
+              {building ? (
+                <>
+                  <span aria-hidden className="h-2 w-2 animate-ping rounded-full bg-paper" />
+                  thinking…
+                </>
+              ) : (
+                <>
+                  build my roadmap
+                  <span aria-hidden className="transition group-hover:translate-x-1">→</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         <footer className="mt-10 flex items-center justify-between font-hand text-base text-pencil">
           <span>made with care · pathfinder</span>
