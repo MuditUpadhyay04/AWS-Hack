@@ -15,6 +15,18 @@ The system asks adaptive questions based on what information would most help
 differentiate between competing paths.
 """
 
+from dotenv import load_dotenv
+import os
+
+load_dotenv()  # Load .env file
+
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+
+if not QDRANT_URL or not QDRANT_API_KEY:
+    raise ValueError("QDRANT_URL and QDRANT_API_KEY must be set in .env file")
+    
+    
 import json
 import numpy as np
 from qdrant_client import QdrantClient
