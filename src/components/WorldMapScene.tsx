@@ -1,6 +1,6 @@
 
 import Phaser from "phaser";
-import type { Roadmap as RoadmapData } from "@/data/mockRoadmap";
+import type { Roadmap as RoadmapData, RoadmapStep } from "@/data/mockRoadmap";
 
 export class WorldMapScene extends Phaser.Scene {
   private roadmap!: RoadmapData;
@@ -19,6 +19,14 @@ export class WorldMapScene extends Phaser.Scene {
     // Cream "paper" background + warm ink palette, so the world reads as the
     // hand-drawn roadmap come to life (same colors as the sketch on screen 2).
     this.cameras.main.setBackgroundColor("#f3ead2");
+
+    // React shows a "level briefing" when a step is tapped; once the player's
+    // reflection passes, it emits this and we run the real scene transition.
+    // Re-bind cleanly each time this scene (re)starts to avoid duplicate handlers.
+    this.game.events.off("reflection-passed");
+    this.game.events.on("reflection-passed", (step: RoadmapStep) => {
+      this.scene.start("PlatformerScene", { step, roadmap: this.roadmap });
+    });
 
     // Header: what this world is actually about.
     this.add
@@ -136,10 +144,10 @@ export class WorldMapScene extends Phaser.Scene {
         });
       }
 
-      // Click an unlocked step to play its Bedrock-generated level.
+      // Click an unlocked step -> open its level briefing (handled in React).
       if (!locked) {
         node.on("pointerdown", () => {
-          this.scene.start("PlatformerScene", { step, roadmap: this.roadmap });
+          this.game.events.emit("step-selected", step);
         });
       }
     });
