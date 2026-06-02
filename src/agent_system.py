@@ -26,16 +26,13 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 
 if not QDRANT_URL or not QDRANT_API_KEY:
     raise ValueError("QDRANT_URL and QDRANT_API_KEY must be set in .env file")
-    
-    
+
 import json
 import numpy as np
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct
 from sentence_transformers import SentenceTransformer
 from sklearn.tree import DecisionTreeClassifier
-import os
-
 
 client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, prefer_grpc=False)
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -205,16 +202,16 @@ class CircularInterviewEngine:
         context_embedding = embedding_model.encode(context)
         
         # Search for the best question
-        results = client.search(
+        results = client.search_points(
             collection_name="questions",
-            query_vector=vector.tolist(),
+            query_vector=context_embedding.tolist(),
             limit=1
         )
         
-        if results:
-            question_id = results[0].payload["question_id"]
-            question_text = results[0].payload["question_text"]
-            domain = results[0].payload["domain"]
+        if results.points:
+            question_id = results.points[0].payload["question_id"]
+            question_text = results.points[0].payload["question_text"]
+            domain = results.points[0].payload["domain"]
             return question_id, question_text, domain
         
         return None, None, None
@@ -306,14 +303,14 @@ class CircularInterviewEngine:
         
         for path in candidate_paths:
             # Search for similar users on this path
-            results = client.search(
+            results = client.search_points(
                 collection_name="user_paths",
                 query_vector=full_vector.tolist(),
                 limit=15  # Get more for better statistics
             )
             
             # Filter to this path only
-            matching_users = [r for r in results if r.payload["path_taken"] == path]
+            matching_users = [r for r in results.points if r.payload["path_taken"] == path]
             
             if matching_users:
                 outcomes = [r.payload["outcome_success"] for r in matching_users]
