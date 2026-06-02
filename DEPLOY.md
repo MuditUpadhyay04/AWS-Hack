@@ -63,8 +63,12 @@ aws s3 website "s3://$BUCKET" --index-document index.html --error-document index
 BUCKET=$BUCKET npm run deploy
 ```
 
-Your site is at: `http://$BUCKET.s3-website-$REGION.amazonaws.com`
-(the exact URL is shown in Console -> S3 -> your bucket -> Properties -> Static website hosting).
+Your site URL depends on the region's endpoint format:
+- newer regions (e.g. us-east-2) use a dot: `http://$BUCKET.s3-website.$REGION.amazonaws.com`
+- older regions (e.g. us-east-1) use a dash: `http://$BUCKET.s3-website-$REGION.amazonaws.com`
+
+The exact URL is shown in Console -> S3 -> your bucket -> Properties -> Static website hosting.
+(Verified live: http://pathfinder-demo-mudit.s3-website.us-east-2.amazonaws.com)
 
 ## 2. Proper deploy (HTTPS via CloudFront)
 
