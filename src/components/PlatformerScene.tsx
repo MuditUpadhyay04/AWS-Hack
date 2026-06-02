@@ -9,13 +9,36 @@ export class PlatformerScene extends Phaser.Scene {
   private isLoading: boolean = true;
   private isTransitioning: boolean = false;
 
+  private cachedLevelData: any = null;
+
   constructor() {
     super({ key: "PlatformerScene" });
   }
 
-  init(data: { step: any; roadmap: any }) {
+  init(data: { step: any, roadmap: any, cachedLevelData?: any }) {
     this.stepData = data.step;
     this.roadmap = data.roadmap;
+    this.cachedLevelData = data.cachedLevelData || null;
+  }
+
+  preload() {
+    const g = this.make.graphics({ x: 0, y: 0 });
+    
+    // Fake Player Sprite
+    g.fillStyle(0xff0000); g.fillRect(0, 0, 32, 48); 
+    g.generateTexture('player', 32, 48); g.clear();
+    
+    // Fake Ground Block
+    g.fillStyle(0x228b22); g.fillRect(0, 0, 40, 40); 
+    g.generateTexture('ground', 40, 40); g.clear();
+    
+    // Fake Bowser/Hazard Sprite
+    g.fillStyle(0xff6600); g.fillRect(0, 0, 40, 40); 
+    g.generateTexture('hazard', 40, 40); g.clear();
+    
+    // Fake Castle/Objective Sprite
+    g.fillStyle(0xffff00); g.fillRect(0, 0, 40, 40); 
+    g.generateTexture('objective', 40, 40); g.clear();
   }
 
   async create() {
@@ -34,35 +57,36 @@ export class PlatformerScene extends Phaser.Scene {
       fontSize: "14px", color: "#ffffff"
     }).setScrollFactor(0); 
 
-    // 3. Setup input early so ESC works while loading
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
       this.input.keyboard.on('keydown-ESC', () => {
-        // Clean up the listener so it doesn't duplicate on restart
         this.input.keyboard?.removeAllListeners('keydown-ESC');
         this.scene.start('WorldMapScene', { roadmap: this.roadmap }); 
       });
     }
 
-    // 4. Show Loading State
-    const loadingText = this.add.text(400, 300, "Asking AI to build level...", {
-      fontSize: "24px", color: "#ffffff", fontFamily: "monospace"
-    }).setOrigin(0.5).setScrollFactor(0);
+    let levelData;
 
-    // 5. THE API CALL (Replaces the hardcoded rawLayout)
-    const levelData = await generateLevelWithBedrock(
-      this.stepData?.difficulty || "easy",
-      this.stepData?.is_risk || false,
-      this.stepData?.domain || "general"
-    );
+    // 3. Skip the API call if we already have the level data
+    if (this.cachedLevelData) {
+      levelData = this.cachedLevelData;
+    } else {
+      const loadingText = this.add.text(400, 300, "Asking AI to build level...", {
+        fontSize: "24px", color: "#ffffff", fontFamily: "monospace"
+      }).setOrigin(0.5).setScrollFactor(0);
 
-    // Remove loading text once the data arrives
-    loadingText.destroy();
+      levelData = await generateLevelWithBedrock(
+        this.stepData?.difficulty || "easy",
+        this.stepData?.is_risk || false,
+        this.stepData?.domain || "general"
+      );
+
+      loadingText.destroy();
+      this.cachedLevelData = levelData; // Save it for next time
+    }
     
-    // 6. Dynamic World Sizing Math
     const blockSize = 40;
     const startY = 200; 
-    
     const levelWidthInPixels = levelData.layout[0].length * blockSize;
     
     this.physics.world.setBounds(0, 0, levelWidthInPixels, 600);
@@ -72,7 +96,6 @@ export class PlatformerScene extends Phaser.Scene {
     const hazards = this.physics.add.staticGroup();
     const objectives = this.physics.add.staticGroup();
 
-    // 7. Parse the AI-generated 2D Array
     for (let y = 0; y < levelData.layout.length; y++) {
       for (let x = 0; x < levelData.layout[y].length; x++) {
         const tile = levelData.layout[y][x];
@@ -80,39 +103,42 @@ export class PlatformerScene extends Phaser.Scene {
         const worldY = startY + (y * blockSize) + (blockSize / 2);
 
         if (tile === "P") {
-          platforms.add(this.add.rectangle(worldX, worldY, blockSize, blockSize, 0x228b22));
+          platforms.create(worldX, worldY, 'ground');
         } else if (tile === "H") {
-          hazards.add(this.add.rectangle(worldX, worldY, blockSize, blockSize, 0xff6600));
+          hazards.create(worldX, worldY, 'hazard');
         } else if (tile === "O") {
-          objectives.add(this.add.rectangle(worldX, worldY, blockSize, blockSize, 0xffff00));
+          objectives.create(worldX, worldY, 'objective');
         }
       }
     }
 
-    // 8. Create the player
-    const playerRect = this.add.rectangle(100, 450, 32, 48, 0xff0000);
-    this.player = this.physics.add.existing(playerRect) as any;
-    
-    this.player.body.setGravityY(800); 
-    this.player.body.setCollideWorldBounds(true);
+    this.player = this.physics.add.sprite(100, 450, 'player');
+    this.player.setGravityY(800); 
+    this.player.setCollideWorldBounds(true);
 
-    // 9. Make the camera follow the player smoothly
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-
-    // 10. Setup Collisions
     this.physics.add.collider(this.player, platforms);
 
     this.physics.add.overlap(this.player, hazards, () => {
       if (this.isTransitioning) return;
       this.isTransitioning = true;
-      this.physics.pause(); // Freeze physics immediately
-
-      this.cameras.main.shake(200, 0.01); 
       
-      // Delay the restart slightly so you actually see the screen shake
-      this.time.delayedCall(250, () => {
-        // MUST pass the roadmap back in so it isn't lost on death
-        this.scene.restart({ step: this.stepData, roadmap: this.roadmap });
+      this.physics.pause(); 
+      this.player.setTint(0x555555); 
+      this.cameras.main.shake(200, 0.01); 
+
+      this.add.text(400, 300, "YOU DIED", {
+        fontSize: "64px", color: "#ff0000", fontStyle: "bold", 
+        stroke: "#000000", strokeThickness: 8
+      }).setOrigin(0.5).setScrollFactor(0);
+      
+      this.time.delayedCall(2500, () => {
+        // 4. Pass the cached data back into the scene restart!
+        this.scene.restart({ 
+          step: this.stepData, 
+          roadmap: this.roadmap, 
+          cachedLevelData: this.cachedLevelData // <-- The crucial handoff
+        });
       });
     });
 
