@@ -18,6 +18,8 @@ export function GameScreen({ roadmap, onBack }: { roadmap: RoadmapData; onBack: 
       height: 600,
       parent: gameRef.current,
       backgroundColor: '#87CEEB', // Mario sky blue
+      // Scale to fit the container so it works on smaller screens too.
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
       scene: [WorldMapScene, PlatformerScene],
       physics: {
         default: 'arcade',
@@ -39,7 +41,7 @@ export function GameScreen({ roadmap, onBack }: { roadmap: RoadmapData; onBack: 
   }, [roadmap]);
 
   return (
-    <div className="bg-paper screen-enter min-h-screen flex flex-col items-center py-10">
+    <div className="bg-paper screen-enter min-h-screen flex flex-col items-center px-4 py-10">
       <header className="mb-6 w-full max-w-4xl flex justify-between items-center px-6">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-pencil">
@@ -59,11 +61,11 @@ export function GameScreen({ roadmap, onBack }: { roadmap: RoadmapData; onBack: 
         </button>
       </header>
       
-      {/* Phaser Canvas Container */}
-      <div 
-        ref={gameRef} 
-        className="rounded-xl overflow-hidden border-4 border-ink shadow-lg"
-        style={{ width: 800, height: 600 }}
+      {/* Phaser canvas — fluid up to 800px, keeps the 4:3 aspect on small screens */}
+      <div
+        ref={gameRef}
+        className="w-full overflow-hidden rounded-xl border-4 border-ink shadow-lg"
+        style={{ maxWidth: 800, aspectRatio: "4 / 3" }}
       />
     </div>
   );

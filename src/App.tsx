@@ -314,7 +314,7 @@ export default function App() {
 
         {currentQuestion ? (
           // mid-interview: ask one clarifying question at a time, notes still visible above
-          <div className="paper-card relative mt-8 rounded-2xl p-5">
+          <div className="paper-card fade-up relative mt-8 rounded-2xl p-5">
             <div className="flex items-center justify-between">
               <span className="font-hand text-sm text-pencil">
                 {isTtsEnabled() ? "i'll ask you a couple of things —" : "a couple of quick questions —"}
@@ -346,9 +346,9 @@ export default function App() {
                   }
                 }}
                 autoFocus
-                placeholder={listening ? "listening…" : "type or speak your answer…"}
+                placeholder={listening ? "listening…" : "write or speak your answer…"}
                 aria-label={currentQuestion.text}
-                className="flex-1 rounded-lg border-2 border-ink/40 bg-paper px-3 py-2 font-hand text-lg text-ink outline-none focus:border-ink"
+                className="flex-1 border-0 border-b-2 border-dashed border-ink/40 bg-transparent px-1 py-2 font-hand text-xl text-ink outline-none transition focus:border-solid focus:border-ink"
               />
               {isSpeechInputAvailable() && (
                 <button
