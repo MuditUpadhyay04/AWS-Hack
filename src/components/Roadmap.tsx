@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import rough from "roughjs";
-import type { Roadmap as RoadmapData, RoadmapStep } from "@/data/mockRoadmap";
+import { mockRoadmap, type Roadmap as RoadmapData, type RoadmapStep } from "@/data/mockRoadmap";
 
 // Screen 2: the hand-drawn roadmap. A winding rough.js path with one node per
 // step, styled by status / risk. Everything here is driven by the `roadmap`
@@ -66,10 +66,10 @@ function colorFor(step: RoadmapStep) {
 }
 
 export function Roadmap({
-  roadmap,
+  roadmap = mockRoadmap,
   onBack,
 }: {
-  roadmap: RoadmapData;
+  roadmap?: RoadmapData;
   onBack?: () => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -84,12 +84,28 @@ export function Roadmap({
     [steps.length],
   );
 
+  // Identity of the roadmap's *structure* (which nodes, and where). When this
+  // changes we redraw with the full staggered reveal. A change to only a step's
+  // status/risk keeps the same structure, so we recolor in place instead of
+  // re-running the reveal animation (so live sync updates don't re-animate).
+  const structureKey = useMemo(
+    () =>
+      steps.map((s) => s.id).join(",") +
+      "|" +
+      positions.map((p) => `${p.x},${p.y}`).join(";"),
+    [steps, positions],
+  );
+  const prevStructureRef = useRef<string | null>(null);
+
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
-    svg.innerHTML = "";
-    setDrawn(0);
     const rc = rough.svg(svg);
+
+    const isStructureChange = prevStructureRef.current !== structureKey;
+    prevStructureRef.current = structureKey;
+
+    svg.innerHTML = "";
 
     // the winding trail connecting the steps
     const pathNode = rc.path(buildPath(positions), {
@@ -103,13 +119,11 @@ export function Roadmap({
     pathNode.setAttribute("opacity", "0.55");
     svg.appendChild(pathNode);
 
-    // collect timers so we can clean them up if the roadmap changes / unmounts
+    // only the staggered-reveal path schedules timers
+    if (isStructureChange) setDrawn(0);
     const timers: ReturnType<typeof setTimeout>[] = [];
 
     steps.forEach((step, i) => {
-      const delay = 300 + i * 220;
-      timers.push(setTimeout(() => setDrawn((d) => Math.max(d, i + 1)), delay));
-
       const c = colorFor(step);
       const r = step.is_risk ? 56 : 48;
       const circ = rc.circle(positions[i].x, positions[i].y, r * 2, {
@@ -122,16 +136,25 @@ export function Roadmap({
         fillWeight: 1.2,
       });
       circ.setAttribute("data-node", String(step.id));
-      circ.style.opacity = "0";
       circ.style.transition = "opacity 0.5s ease";
-      svg.appendChild(circ);
       // Not-yet-started steps stay faded to read as "locked / future".
       const targetOpacity = step.status === "not_started" && !step.is_risk ? "0.45" : "1";
-      timers.push(setTimeout(() => (circ.style.opacity = targetOpacity), delay));
+
+      if (isStructureChange) {
+        // first draw / new roadmap -> fade each node in on a stagger
+        const delay = 300 + i * 220;
+        circ.style.opacity = "0";
+        timers.push(setTimeout(() => setDrawn((d) => Math.max(d, i + 1)), delay));
+        timers.push(setTimeout(() => (circ.style.opacity = targetOpacity), delay));
+      } else {
+        // status/risk change only -> recolor in place, no re-animation
+        circ.style.opacity = targetOpacity;
+      }
+      svg.appendChild(circ);
     });
 
     return () => timers.forEach(clearTimeout);
-  }, [steps, positions]);
+  }, [steps, positions, structureKey]);
 
   // Which step is "current", for the "you're here" pin.
   const currentIndex = steps.findIndex((s) => s.status === "in_progress");

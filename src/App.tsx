@@ -4,8 +4,10 @@ import { Notepad } from "@/components/Notepad";
 import { IntegrationsPanel } from "@/components/IntegrationsPanel";
 import { ConstraintsBar } from "@/components/ConstraintsBar";
 import { Roadmap } from "@/components/Roadmap";
+import { UnderstandingPreview } from "@/components/UnderstandingPreview";
 import { fetchRoadmap } from "@/lib/api";
-import { detectInsights } from "@/lib/insights";
+import { deriveDomain, detectInsights } from "@/lib/insights";
+import { parseNotes } from "@/lib/notes";
 import type { Roadmap as RoadmapData } from "@/data/mockRoadmap";
 
 // Minimum time to keep the "sketching..." beat on screen so the hand-off feels
@@ -28,6 +30,10 @@ export default function App() {
   // writing, the "things I know" strip once it actually picks something up.
   const hasText = text.trim().length > 0;
   const hasInsights = useMemo(() => detectInsights(text).length > 0, [text]);
+  // Once 2+ insight rules match, we're confident enough to name the domain.
+  const domain = useMemo(() => deriveDomain(text).domain, [text]);
+  // Live structured view of the notes — shown in the preview and sent to the backend.
+  const notesDoc = useMemo(() => parseNotes(text), [text]);
   const integrationsVisible = integrationsOpen || integrationsPinned;
 
   const handleBuild = useCallback(async () => {
@@ -36,7 +42,7 @@ export default function App() {
     try {
       // Wait on whichever takes longer: the fetch or the minimum beat. Instant
       // for the mock today; honours real latency once the backend is wired.
-      const [data] = await Promise.all([fetchRoadmap(text), wait(MIN_SKETCH_MS)]);
+      const [data] = await Promise.all([fetchRoadmap(notesDoc), wait(MIN_SKETCH_MS)]);
       setRoadmap(data);
       setScreen("roadmap");
     } catch (err) {
@@ -45,7 +51,7 @@ export default function App() {
     } finally {
       setBuilding(false);
     }
-  }, [text, building]);
+  }, [notesDoc, building]);
 
   // Cmd/Ctrl + Enter mirrors the "build my roadmap" button.
   useEffect(() => {
@@ -71,8 +77,14 @@ export default function App() {
             <span className="font-hand text-4xl text-ink leading-none">Pathfinder</span>
             <span className="font-hand text-base text-pencil leading-none">— a thinking page</span>
           </div>
-          <div className="hidden items-center gap-3 md:flex">
-            <span className="font-hand text-base text-pencil">
+          <div className="flex items-center gap-3">
+            {domain && (
+              <span className="fade-up inline-flex items-center gap-1.5 rounded-full border border-success/50 bg-success/20 px-3 py-1 font-hand text-base text-ink">
+                <span aria-hidden className="pulse-dot h-2 w-2 rounded-full bg-success" />
+                {domain} mode
+              </span>
+            )}
+            <span className="hidden font-hand text-base text-pencil md:inline">
               <span aria-hidden className="text-primary">●</span> writing with you
             </span>
           </div>
@@ -130,6 +142,13 @@ export default function App() {
             )}
           </div>
         </div>
+
+        {/* live structured view of the notes — what we'll send to the backend */}
+        {notesDoc.sections.length > 0 && (
+          <div className="screen-enter mt-6">
+            <UnderstandingPreview doc={notesDoc} />
+          </div>
+        )}
 
         {/* "things i know about you" — appears once the AI picks something up */}
         {hasInsights && (

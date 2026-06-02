@@ -1,8 +1,13 @@
 // The strip below screen 1's panels: the constraints/facts the system has
-// gathered about the user. Hardcoded sample data for now; eventually these come
-// from the backend alongside the roadmap.
+// gathered about the user. Falls back to sample data until the backend sends
+// real extracted constraints through the `constraints` prop.
 
-const CONSTRAINTS = [
+export interface Constraint {
+  icon: string;
+  label: string;
+}
+
+const DEFAULT_CONSTRAINTS: Constraint[] = [
   { icon: "🎓", label: "final year student" },
   { icon: "💰", label: "$5,000 saved" },
   { icon: "🏠", label: "$650/mo rent" },
@@ -10,7 +15,11 @@ const CONSTRAINTS = [
   { icon: "💼", label: "part-time intern income" },
 ];
 
-export function ConstraintsBar() {
+export function ConstraintsBar({
+  constraints = DEFAULT_CONSTRAINTS,
+}: {
+  constraints?: Constraint[];
+} = {}) {
   return (
     <section className="paper-card relative rounded-2xl p-5">
       <div className="tape -top-3 left-1/2 -translate-x-1/2 rotate-1" />
@@ -21,7 +30,7 @@ export function ConstraintsBar() {
         <span className="font-hand text-sm text-pencil">— i'll keep adding as we talk</span>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        {CONSTRAINTS.map((c, i) => (
+        {constraints.map((c, i) => (
           <span
             key={c.label}
             className="fade-up inline-flex items-center gap-1.5 rounded-full border border-ink/30 bg-paper-warm px-3 py-1.5 font-hand text-base text-ink"

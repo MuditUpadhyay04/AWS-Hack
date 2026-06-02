@@ -17,12 +17,27 @@ function IntegrationCard({
   icon: React.ReactNode;
   tilt: string;
 }) {
-  const [status, setStatus] = useState<Status>("idle");
+  // Persist "connected" across refreshes so a mid-demo reload doesn't look broken.
+  const storageKey = `integration_status_${name.toLowerCase().replace(/\s+/g, "_")}`;
+  const [status, setStatus] = useState<Status>(() => {
+    try {
+      return localStorage.getItem(storageKey) === "connected" ? "connected" : "idle";
+    } catch {
+      return "idle";
+    }
+  });
 
   const handle = () => {
     if (status !== "idle") return;
     setStatus("connecting");
-    setTimeout(() => setStatus("connected"), 1200);
+    setTimeout(() => {
+      setStatus("connected");
+      try {
+        localStorage.setItem(storageKey, "connected");
+      } catch {
+        // localStorage can be unavailable (private mode) — connection still works for the session.
+      }
+    }, 1200);
   };
 
   return (

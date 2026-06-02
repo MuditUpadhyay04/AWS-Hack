@@ -4,6 +4,7 @@ node_modules
 # build output
 dist
 dist-ssr
+.vite
 
 # local env files (VITE_API_BASE_URL etc.) — never commit real values
 .env

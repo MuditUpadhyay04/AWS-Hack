@@ -22,19 +22,57 @@ const RULES: { match: RegExp; insight: Insight }[] = [
     insight: { id: "student", label: "guessing you're a student?", kind: "guess" } },
   { match: /\b(rent|apartment|housing|dorm)\b/i,
     insight: { id: "housing", label: "housing is on your mind", kind: "care" } },
-  { match: /\b(money|income|earn|salary|job|intern)\b/i,
+  // income owns earning/money words; job/salary moved to `career` to avoid overlap.
+  { match: /\b(money|income|earn|intern)\b/i,
     insight: { id: "income", label: "noting your income situation", kind: "notice" } },
-  { match: /\b(health|gym|workout|fitness)\b/i,
+  { match: /\b(health|gym|workout|fitness|doctor|diet|mental|sleep|calories|meditat)\b/i,
     insight: { id: "health", label: "looks like a health goal too", kind: "notice" } },
-  { match: /\b(career|cert|certification|skill)\b/i,
+  // career owns job-move words; cert/skill/learning moved to `education`.
+  { match: /\b(career|job|promotion|resume|interview|salary|raise)\b/i,
     insight: { id: "career", label: "career growth — i hear you", kind: "notice" } },
+  { match: /\b(course|degree|cert|certification|study|class|skill|bootcamp|learn)\b/i,
+    insight: { id: "education", label: "learning something new — noted", kind: "notice" } },
+  { match: /\b(move|moving|relocate|city|new place|new city)\b/i,
+    insight: { id: "relocation", label: "a move might be in the picture", kind: "care" } },
+  { match: /\b(freelance|side hustle|passive income|startup|business|selling|consulting)\b/i,
+    insight: { id: "sideincome", label: "you're thinking about earning more", kind: "notice" } },
+  { match: /\b(anxious|stress|overwhelm|burnout|tired|exhaust|stuck|lost)\b/i,
+    insight: { id: "emotional", label: "sounds like there's a lot on your plate", kind: "care" } },
 ];
 
-// Returns up to 4 distinct insights matched in the text (kept calm on purpose).
-export function detectInsights(text: string): Insight[] {
+// All distinct insights matched in the text (one per id).
+function matchAll(text: string): Insight[] {
   const found = new Map<string, Insight>();
   for (const { match, insight } of RULES) {
     if (match.test(text)) found.set(insight.id, insight);
   }
-  return Array.from(found.values()).slice(0, 4);
+  return Array.from(found.values());
+}
+
+// Returns up to 4 distinct insights matched in the text (kept calm on purpose).
+export function detectInsights(text: string): Insight[] {
+  return matchAll(text).slice(0, 4);
+}
+
+export interface DomainResult {
+  /** A friendly domain label once we're confident, else null. */
+  domain: string | null;
+  /** How many distinct rule ids matched (drives "are we confident yet?"). */
+  matchCount: number;
+}
+
+// Maps the matched insight ids to a single domain once 2+ rules match. Used by
+// the top-bar "domain mode" badge so the app can signal it understood the topic.
+export function deriveDomain(text: string): DomainResult {
+  const ids = new Set(matchAll(text).map((i) => i.id));
+  const matchCount = ids.size;
+
+  if (matchCount < 2) return { domain: null, matchCount };
+  if (["invest", "debt", "save", "income"].some((d) => ids.has(d)))
+    return { domain: "finance", matchCount };
+  if (ids.has("education") || ids.has("career"))
+    return { domain: "career & learning", matchCount };
+  if (ids.has("health")) return { domain: "health", matchCount };
+  if (ids.has("sideincome")) return { domain: "entrepreneurship", matchCount };
+  return { domain: "personal growth", matchCount };
 }
