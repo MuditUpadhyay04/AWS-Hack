@@ -88,3 +88,50 @@ export function listenOnce(
     }
   };
 }
+
+// Continuously listen for a wake phrase ("are you awake buddy", "hey pathfinder",
+// etc.) and call onWake when heard. Keeps itself alive across the browser's
+// auto-stops. Returns a stop() function, or null if recognition is unavailable.
+export function listenForWake(onWake: () => void): (() => void) | null {
+  const w = window as unknown as Record<string, any>;
+  const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+  if (!SR) return null;
+
+  const rec = new SR();
+  rec.lang = "en-US";
+  rec.continuous = true;
+  rec.interimResults = false;
+  let stopped = false;
+
+  rec.onresult = (e: any) => {
+    const phrase: string = (e.results?.[e.results.length - 1]?.[0]?.transcript ?? "").toLowerCase();
+    if (/\b(awake|wake up|hey pathfinder|you up|you there)\b/.test(phrase)) onWake();
+  };
+  // The browser stops recognition periodically — restart it so we keep listening.
+  rec.onend = () => {
+    if (!stopped) {
+      try {
+        rec.start();
+      } catch {
+        /* already starting */
+      }
+    }
+  };
+  rec.onerror = () => {
+    /* ignore transient errors; onend will restart */
+  };
+  try {
+    rec.start();
+  } catch {
+    /* noop */
+  }
+
+  return () => {
+    stopped = true;
+    try {
+      rec.stop();
+    } catch {
+      /* noop */
+    }
+  };
+}
