@@ -16,6 +16,7 @@ import {
 import { deriveDomain, detectInsights } from "@/lib/insights";
 import { parseNotes } from "@/lib/notes";
 import { getDemoSyncPulse } from "@/lib/sheetsSync";
+import { isSpeechInputAvailable, isTtsEnabled, listenOnce, speak } from "@/lib/voice";
 import type { Roadmap as RoadmapData } from "@/data/mockRoadmap";
 
 // Minimum time to keep the "sketching..." beat on screen so the hand-off feels
@@ -44,6 +45,8 @@ export default function App() {
   const [answerText, setAnswerText] = useState("");
   const [interviewConstraints, setInterviewConstraints] = useState<Constraint[]>([]);
   const [rationale, setRationale] = useState<Rationale | null>(null);
+  // Whether the mic is actively capturing a spoken answer.
+  const [listening, setListening] = useState(false);
   // The plug-ins panel starts hidden; the user opens it, and a pin keeps it open.
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const [integrationsPinned, setIntegrationsPinned] = useState(false);
@@ -93,6 +96,7 @@ export default function App() {
           setRationale(res.rationale ?? null);
           setCurrentQuestion(null);
           setScreen("roadmap");
+          speak(`Here's your path toward ${res.roadmap.goal}.`);
         }
       } catch (err) {
         // Don't dead-end the demo — log it and let the user try again.
@@ -120,6 +124,22 @@ export default function App() {
     };
     runAdvance([...answers, answer]);
   }, [currentQuestion, answerText, answers, runAdvance]);
+
+  // Answer by voice: capture one spoken phrase into the answer box.
+  const handleMic = useCallback(() => {
+    if (listening) return;
+    setListening(true);
+    const stop = listenOnce(
+      (transcript) => setAnswerText(transcript),
+      () => setListening(false),
+    );
+    if (!stop) setListening(false); // recognition unavailable
+  }, [listening]);
+
+  // Speak each clarifying question aloud (no-op if ElevenLabs isn't configured).
+  useEffect(() => {
+    if (currentQuestion) speak(currentQuestion.text);
+  }, [currentQuestion]);
 
   // Cmd/Ctrl + Enter starts the build (only when we're not mid-interview).
   useEffect(() => {
@@ -193,7 +213,10 @@ export default function App() {
           roadmap={roadmap}
           rationale={rationale}
           onBack={() => setScreen("notes")}
-          onPlay={() => setScreen("game")}
+          onPlay={() => {
+            speak("Alright — let's play this out.");
+            setScreen("game");
+          }}
         />
       </div>
     );
@@ -293,10 +316,25 @@ export default function App() {
           // mid-interview: ask one clarifying question at a time, notes still visible above
           <div className="paper-card relative mt-8 rounded-2xl p-5">
             <div className="flex items-center justify-between">
-              <span className="font-hand text-sm text-pencil">a couple of quick questions —</span>
+              <span className="font-hand text-sm text-pencil">
+                {isTtsEnabled() ? "i'll ask you a couple of things —" : "a couple of quick questions —"}
+              </span>
               <span className="font-hand text-sm text-pencil">question {answers.length + 1}</span>
             </div>
-            <p className="mt-2 font-hand text-2xl text-ink">{currentQuestion.text}</p>
+            <div className="mt-2 flex items-start gap-2">
+              <p className="font-hand text-2xl text-ink">{currentQuestion.text}</p>
+              {isTtsEnabled() && (
+                <button
+                  type="button"
+                  onClick={() => speak(currentQuestion.text)}
+                  aria-label="Replay question"
+                  title="Replay"
+                  className="mt-1 shrink-0 rounded-md px-1.5 py-0.5 text-pencil transition hover:text-ink"
+                >
+                  🔊
+                </button>
+              )}
+            </div>
             <div className="mt-3 flex gap-2">
               <input
                 value={answerText}
@@ -308,15 +346,30 @@ export default function App() {
                   }
                 }}
                 autoFocus
-                placeholder="type your answer…"
+                placeholder={listening ? "listening…" : "type or speak your answer…"}
                 aria-label={currentQuestion.text}
                 className="flex-1 rounded-lg border-2 border-ink/40 bg-paper px-3 py-2 font-hand text-lg text-ink outline-none focus:border-ink"
               />
+              {isSpeechInputAvailable() && (
+                <button
+                  type="button"
+                  onClick={handleMic}
+                  aria-label={listening ? "Listening" : "Answer by voice"}
+                  title="Answer by voice"
+                  className={`shrink-0 rounded-full border-2 px-4 py-2 font-hand text-lg transition ${
+                    listening
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-ink/60 bg-paper text-ink hover:bg-ink hover:text-paper"
+                  }`}
+                >
+                  {listening ? "● listening" : "🎤"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={submitAnswer}
                 disabled={building || !answerText.trim()}
-                className="rounded-full border-2 border-ink bg-ink px-5 py-2 font-hand text-lg text-paper transition hover:bg-primary hover:border-primary disabled:opacity-60"
+                className="shrink-0 rounded-full border-2 border-ink bg-ink px-5 py-2 font-hand text-lg text-paper transition hover:bg-primary hover:border-primary disabled:opacity-60"
               >
                 {building ? "…" : "answer →"}
               </button>

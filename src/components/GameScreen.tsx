@@ -39,13 +39,19 @@ export function GameScreen({ roadmap, onBack }: { roadmap: RoadmapData; onBack: 
   }, [roadmap]);
 
   return (
-    <div className="bg-paper min-h-screen flex flex-col items-center py-10">
+    <div className="bg-paper screen-enter min-h-screen flex flex-col items-center py-10">
       <header className="mb-6 w-full max-w-4xl flex justify-between items-center px-6">
         <div>
-          <h1 className="font-hand text-4xl text-ink">Your Living Path</h1>
-          <p className="text-pencil font-hand">Surplus moves you forward. Setbacks push you back.</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-pencil">
+            now playing · your roadmap, as a world
+          </p>
+          <h1 className="font-hand text-4xl text-ink">{roadmap.goal}</h1>
+          <p className="text-pencil font-hand">
+            each step is a level — surplus moves you forward, setbacks push you back.
+          </p>
         </div>
-        <button 
+        <button
+          type="button"
           onClick={onBack}
           className="rounded-full border-2 border-ink bg-paper px-4 py-2 font-hand text-lg hover:bg-ink hover:text-paper transition"
         >
