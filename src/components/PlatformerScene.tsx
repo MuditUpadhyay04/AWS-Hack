@@ -22,23 +22,10 @@ export class PlatformerScene extends Phaser.Scene {
   }
 
   preload() {
-    const g = this.make.graphics({ x: 0, y: 0 });
-    
-    // Fake Player Sprite
-    g.fillStyle(0xff0000); g.fillRect(0, 0, 32, 48); 
-    g.generateTexture('player', 32, 48); g.clear();
-    
-    // Fake Ground Block
-    g.fillStyle(0x228b22); g.fillRect(0, 0, 40, 40); 
-    g.generateTexture('ground', 40, 40); g.clear();
-    
-    // Fake Bowser/Hazard Sprite
-    g.fillStyle(0xff6600); g.fillRect(0, 0, 40, 40); 
-    g.generateTexture('hazard', 40, 40); g.clear();
-    
-    // Fake Castle/Objective Sprite
-    g.fillStyle(0xffff00); g.fillRect(0, 0, 40, 40); 
-    g.generateTexture('objective', 40, 40); g.clear();
+    this.load.image('player', '/assets/player.png');
+    this.load.image('ground', '/assets/ground.png');
+    this.load.image('hazard', '/assets/hazard.png');
+    this.load.image('objective', '/assets/objective.png');
   }
 
   async create() {
@@ -103,16 +90,25 @@ export class PlatformerScene extends Phaser.Scene {
         const worldY = startY + (y * blockSize) + (blockSize / 2);
 
         if (tile === "P") {
-          platforms.create(worldX, worldY, 'ground');
+          const platform = platforms.create(worldX, worldY, 'ground');
+          platform.setDisplaySize(blockSize, blockSize);
+          platform.refreshBody(); // Crucial: Updates the static hitbox
+          
         } else if (tile === "H") {
-          hazards.create(worldX, worldY, 'hazard');
+          const hazard = hazards.create(worldX, worldY, 'hazard');
+          hazard.setDisplaySize(blockSize, blockSize);
+          hazard.refreshBody();
+          
         } else if (tile === "O") {
-          objectives.create(worldX, worldY, 'objective');
+          const objective = objectives.create(worldX, worldY, 'objective');
+          objective.setDisplaySize(blockSize, blockSize);
+          objective.refreshBody();
         }
       }
     }
 
     this.player = this.physics.add.sprite(100, 450, 'player');
+    
     this.player.setGravityY(800); 
     this.player.setCollideWorldBounds(true);
 
