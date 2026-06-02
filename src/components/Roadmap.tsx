@@ -68,9 +68,11 @@ function colorFor(step: RoadmapStep) {
 export function Roadmap({
   roadmap,
   onBack,
+  onPlay,
 }: {
   roadmap: RoadmapData;
   onBack?: () => void;
+  onPlay?: () => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   // How many nodes have "appeared" so far, for the staggered reveal.
@@ -280,6 +282,7 @@ export function Roadmap({
             type="button"
             className="rounded-full border-2 border-ink bg-ink px-5 py-2 font-hand text-lg text-paper transition hover:bg-paper hover:text-ink"
             style={{ boxShadow: "3px 3px 0 rgba(0,0,0,0.25)" }}
+            onClick={onPlay}
           >
             keep going →
           </button>

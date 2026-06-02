@@ -1,9 +1,12 @@
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CortexPanel } from "@/components/CortexPanel";
 import { Notepad } from "@/components/Notepad";
 import { IntegrationsPanel } from "@/components/IntegrationsPanel";
 import { ConstraintsBar } from "@/components/ConstraintsBar";
 import { Roadmap } from "@/components/Roadmap";
+import { GameScreen } from "@/components/GameScreen";
 import { fetchRoadmap } from "@/lib/api";
 import { detectInsights } from "@/lib/insights";
 import type { Roadmap as RoadmapData } from "@/data/mockRoadmap";
@@ -13,8 +16,12 @@ import type { Roadmap as RoadmapData } from "@/data/mockRoadmap";
 const MIN_SKETCH_MS = 1400;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Top-level container. Holds the two pieces of shared state — the notes text
+// and which screen we're on — and toggles between screen 1 (notes) and screen 2
+// (roadmap). Navigation is a simple in-page toggle rather than a router, which
+// keeps the static S3/CloudFront hosting trivial (no SPA routing fallback).
 export default function App() {
-  const [screen, setScreen] = useState<"notes" | "roadmap">("notes");
+  const [screen, setScreen] = useState<"notes" | "roadmap"| "game">("notes");
   const [text, setText] = useState("");
   // The roadmap returned by the backend (or mock); null until the user builds one.
   const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
@@ -56,11 +63,16 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [handleBuild]);
 
+  if (screen === "game" && roadmap)
+    return <GameScreen roadmap={roadmap} onBack={() => setScreen("roadmap")} />;
+  
   if (screen === "roadmap" && roadmap)
     return (
-      <div className="screen-enter">
-        <Roadmap roadmap={roadmap} onBack={() => setScreen("notes")} />
-      </div>
+      <Roadmap 
+        roadmap={roadmap} 
+        onBack={() => setScreen("notes")} 
+        onPlay={() => setScreen("game")} // <-- This is the crucial link
+      />
     );
 
   return (
