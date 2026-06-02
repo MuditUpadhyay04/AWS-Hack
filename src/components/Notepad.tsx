@@ -62,6 +62,7 @@ export function Notepad({
             ref={ref}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            aria-label="Your notes"
             spellCheck={false}
             className="relative w-full resize-none bg-transparent font-hand text-[22px] leading-[32px] text-ink outline-none"
             style={{ minHeight: 420 }}

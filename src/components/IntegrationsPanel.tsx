@@ -40,6 +40,7 @@ function IntegrationCard({
         </div>
       </div>
       <button
+        type="button"
         onClick={handle}
         disabled={status !== "idle"}
         className={`mt-3 w-full rounded-lg border-2 px-3 py-2 font-hand text-base transition ${
@@ -61,10 +62,52 @@ function IntegrationCard({
   );
 }
 
-export function IntegrationsPanel() {
+export function IntegrationsPanel({
+  pinned,
+  onTogglePin,
+  onClose,
+}: {
+  pinned?: boolean;
+  onTogglePin?: () => void;
+  onClose?: () => void;
+} = {}) {
+  // Show the pin/close controls only when App is managing this panel's visibility.
+  const showControls = Boolean(onTogglePin || onClose);
+
   return (
     <aside className="paper-card relative flex flex-col gap-4 rounded-2xl p-5">
       <div className="tape -top-3 right-6 rotate-6" />
+
+      {showControls && (
+        <div className="flex justify-end gap-1">
+          {onTogglePin && (
+            <button
+              type="button"
+              onClick={onTogglePin}
+              aria-pressed={pinned}
+              aria-label={pinned ? "Unpin plug-ins" : "Pin plug-ins open"}
+              title={pinned ? "Unpin" : "Keep open"}
+              className={`rounded-md px-1.5 py-0.5 text-base transition ${
+                pinned ? "opacity-100" : "opacity-50 hover:opacity-90"
+              }`}
+            >
+              📌
+            </button>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Hide plug-ins"
+              title="Hide"
+              className="rounded-md px-2 py-0.5 font-hand text-lg leading-none text-pencil transition hover:text-ink"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-col">
         <span className="font-hand text-base text-pencil">if you'd like —</span>
         <span className="font-hand text-2xl text-ink scribble-underline inline-block">

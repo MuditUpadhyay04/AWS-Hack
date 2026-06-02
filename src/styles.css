@@ -86,6 +86,12 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
+  /* Visible keyboard-focus ring for all interactive elements (a11y). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
 }
 
 @layer utilities {
@@ -185,6 +191,25 @@
       transparent 92%
     );
     padding: 0 2px;
+  }
+
+  /* Panels sliding in as the AI "notices" things on screen 1. */
+  .slide-in-left { animation: slideInLeft 0.45s ease both; }
+  .slide-in-right { animation: slideInRight 0.45s ease both; }
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(12px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* Whole-screen fade used on the notes <-> roadmap hand-off. */
+  .screen-enter { animation: screenEnter 0.5s ease both; }
+  @keyframes screenEnter {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   /* Hand-drawn squiggle underline (inline SVG) for headings. */

@@ -152,6 +152,7 @@ export function Roadmap({
             </p>
           </div>
           <button
+            type="button"
             onClick={onBack}
             className="rounded-full border-2 border-ink/70 bg-paper px-4 py-2 font-hand text-lg text-ink transition hover:bg-ink hover:text-paper"
             style={{ boxShadow: "3px 3px 0 rgba(0,0,0,0.15)" }}
@@ -276,6 +277,7 @@ export function Roadmap({
             <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: "#f4a261" }} /> ⚠ risk (bowser)</span>
           </div>
           <button
+            type="button"
             className="rounded-full border-2 border-ink bg-ink px-5 py-2 font-hand text-lg text-paper transition hover:bg-paper hover:text-ink"
             style={{ boxShadow: "3px 3px 0 rgba(0,0,0,0.25)" }}
           >
