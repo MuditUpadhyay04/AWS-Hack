@@ -3,21 +3,12 @@ import Phaser from "phaser";
 import { WorldMapScene } from "@/components/WorldMapScene";
 import { PlatformerScene } from "@/components/PlatformerScene";
 import { speak } from "@/lib/voice";
+import { validateReflection } from "@/lib/reflection";
 import type { Roadmap as RoadmapData, RoadmapStep } from "@/data/mockRoadmap";
 
 // The level is a *reward* for doing the real-world step. Before playing, the
-// player says what they've actually done; only a genuine effort unlocks the
-// level. This keeps the game tied to the cause instead of feeling bolted on.
-function evaluateReflection(text: string): { ok: boolean; message: string } {
-  const t = text.trim();
-  const words = t.split(/\s+/).filter(Boolean);
-  const filler = /^(done|yes|no|nothing|idk|nope|na|n\/?a|ok|sure)\.?$/i;
-  if (t.length < 12 || words.length < 3 || filler.test(t)) {
-    return { ok: false, message: "tell me a bit more — what did you actually do toward this?" };
-  }
-  return { ok: true, message: "nice — that counts. you've earned this level." };
-}
-
+// player says what they've actually done; an AI checks it's genuine, relevant
+// effort. This keeps the game tied to the cause instead of feeling bolted on.
 export function GameScreen({ roadmap, onBack }: { roadmap: RoadmapData; onBack: () => void }) {
   const gameRef = useRef<HTMLDivElement>(null);
   const gameInstance = useRef<Phaser.Game | null>(null);
@@ -26,6 +17,7 @@ export function GameScreen({ roadmap, onBack }: { roadmap: RoadmapData; onBack: 
   const [pendingStep, setPendingStep] = useState<RoadmapStep | null>(null);
   const [reflection, setReflection] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     if (!gameRef.current) return;
@@ -70,9 +62,12 @@ export function GameScreen({ roadmap, onBack }: { roadmap: RoadmapData; onBack: 
     if (pendingStep) speak(`Before you play: what have you done toward ${pendingStep.title}?`);
   }, [pendingStep]);
 
-  const handlePlay = () => {
-    if (!pendingStep) return;
-    const verdict = evaluateReflection(reflection);
+  const handlePlay = async () => {
+    if (!pendingStep || checking) return;
+    setChecking(true);
+    setFeedback(null);
+    const verdict = await validateReflection(pendingStep.title, reflection);
+    setChecking(false);
     if (!verdict.ok) {
       setFeedback(verdict.message);
       return;
@@ -143,9 +138,10 @@ export function GameScreen({ roadmap, onBack }: { roadmap: RoadmapData; onBack: 
               <button
                 type="button"
                 onClick={handlePlay}
-                className="rounded-full border-2 border-ink bg-ink px-5 py-2 font-hand text-lg text-paper transition hover:bg-primary hover:border-primary"
+                disabled={checking}
+                className="rounded-full border-2 border-ink bg-ink px-5 py-2 font-hand text-lg text-paper transition hover:bg-primary hover:border-primary disabled:opacity-60"
               >
-                I've done this →
+                {checking ? "checking…" : "I've done this →"}
               </button>
             </div>
           </div>
