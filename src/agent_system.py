@@ -37,7 +37,7 @@ from sklearn.tree import DecisionTreeClassifier
 import os
 
 
-client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, prefer_grpc=False)
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # ============================================================================
